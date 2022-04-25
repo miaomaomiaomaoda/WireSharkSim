@@ -1,3 +1,6 @@
+package ui;
+
+import main.Main;
 import org.pcap4j.core.PcapNativeException;
 import org.pcap4j.core.PcapNetworkInterface;
 import org.pcap4j.core.Pcaps;
@@ -24,33 +27,34 @@ public class NetworkInterfaceWindow extends JFrame {
 
     public void windowInit(){
         Container container = this.getContentPane();
-        container.setLayout(new BorderLayout(5,5));
+        container.setLayout(null);
 
-        JPanel selectPanel = new JPanel(new FlowLayout());
         JLabel nifLabel = new JLabel("网口:");
         JComboBox<String> nifJComboBox = new JComboBox<>();
+        nifLabel.setBounds(40,90,40,30);
+        nifLabel.setFont(new Font("黑体",Font.PLAIN,15));
+        nifJComboBox.setBounds(100,90,320,30);
+        nifJComboBox.setFont(new Font("黑体",Font.PLAIN,15));
         nifJComboBox.addItem("没有发现网卡");
         initNifComboBox(nifJComboBox);
-        selectPanel.add(nifLabel);
-        selectPanel.add(nifJComboBox);
+        container.add(nifLabel);
+        container.add(nifJComboBox);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton ok_button = new JButton("确定");
+        ok_button.setFont(new Font("黑体",Font.PLAIN,15));
+        ok_button.setBounds(200,160,80,40);
         ok_button.addActionListener(e -> {
             nif = allDev.get(nifJComboBox.getSelectedIndex());
-            MainUI.updateNif(nif);
+            Main.updateNif(nif);
             System.out.println("nif.toString() = " + nif.toString());
             dispose();
         });
-        buttonPanel.add(ok_button);
-        container.add(selectPanel,BorderLayout.CENTER);
-        container.add(buttonPanel,BorderLayout.SOUTH);
+        container.add(ok_button);
     }
 
     /**
-     * description:加载v下拉框数据
+     * function:加载下拉框数据
      * @param nifJComboBox 下拉框
-     * @throws PcapNativeException 异常
      */
     public void initNifComboBox(JComboBox<String> nifJComboBox){
         nifJComboBox.removeAllItems();

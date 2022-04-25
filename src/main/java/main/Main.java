@@ -1,12 +1,22 @@
+package main;
+
 import org.pcap4j.core.NotOpenException;
 import org.pcap4j.core.PcapNativeException;
 import org.pcap4j.core.PcapNetworkInterface;
 import org.pcap4j.packet.Packet;
+import packet.PacketCapture;
+import packet.PacketList;
+import ui.NetworkInterfaceWindow;
+import ui.PacketTable;
+import ui.PacketTree;
+import utils.Utils;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.io.File;
@@ -17,7 +27,7 @@ import java.util.Objects;
  *
  * @author ZERONJ
  */
-public class MainUI extends JFrame {
+public class Main extends JFrame {
     private static PcapNetworkInterface nif;
     private PacketCapture packetCapture;
     private PacketList allPackets;
@@ -30,18 +40,19 @@ public class MainUI extends JFrame {
     /**
      * function：create new form
      */
-    public MainUI() {
+    public Main() {
         initComponents();
         //设定文件默认目录
         fileChooser = new JFileChooser();
-        FileNameExtensionFilter filter=new FileNameExtensionFilter("*.pcap","pcap");
+        FileNameExtensionFilter filter=new FileNameExtensionFilter("*.pcap4j","pcap4j");
         fileChooser.setFileFilter(filter);
         fileChooser.setMultiSelectionEnabled(false);
-        if (System.getProperty(MainUI.INIT_DIR) != null && !System.getProperty(MainUI.INIT_DIR).isEmpty()) {
-            fileChooser.setCurrentDirectory(new File(System.getProperty(MainUI.INIT_DIR)));
+        if (System.getProperty(Main.INIT_DIR) != null && !System.getProperty(Main.INIT_DIR).isEmpty()) {
+            fileChooser.setCurrentDirectory(new File(System.getProperty(Main.INIT_DIR)));
         }
         allPackets = new PacketList();
         packetTable = new PacketTable(this);
+        packetTree = new PacketTree(this,null);
     }
 
     /**
@@ -61,8 +72,14 @@ public class MainUI extends JFrame {
         txtFilter = new JTextField();
         btnFilter = new JButton();
         jScrollPane1 = new JScrollPane();
-        table = new JTable();
+        table = new JTable(){
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
         jScrollPane2 = new JScrollPane();
+        tree = new JTree();
         analysisTextArea = new JTextArea();
         jScrollPane3 = new JScrollPane();
         packetBytes = new JTextArea();
@@ -187,14 +204,25 @@ public class MainUI extends JFrame {
         table.setDefaultRenderer(Object.class, dc);
         jScrollPane1.setViewportView(table);
 
-        analysisTextArea.setFont(new Font("宋体", Font.PLAIN, 14));
-        analysisTextArea.setText("测试");
-        analysisTextArea.setEditable(false);
-        jScrollPane2.setViewportView(analysisTextArea);
+        tree.setFont(new java.awt.Font("宋体", Font.PLAIN, 14));
+        DefaultMutableTreeNode treeNode1 = new DefaultMutableTreeNode("分层协议");
+        DefaultMutableTreeNode treeNode2 = new DefaultMutableTreeNode("Frame");
+        treeNode1.add(treeNode2);
+        treeNode2 = new DefaultMutableTreeNode("Ethernet II");
+        treeNode1.add(treeNode2);
+        treeNode2 = new DefaultMutableTreeNode("Internet Protocol");
+        treeNode1.add(treeNode2);
+        treeNode2 = new DefaultMutableTreeNode("Transmission Control Protocol");
+        treeNode1.add(treeNode2);
+        tree.setModel(new DefaultTreeModel(treeNode1));
+        tree.setAutoscrolls(true);
+        tree.setLargeModel(true);
+        jScrollPane2.setViewportView(tree);
 
         packetBytes.setColumns(20);
         packetBytes.setFont(new Font("Monospaced", Font.PLAIN, 14));
         packetBytes.setRows(5);
+        packetBytes.setEditable(false);
         packetBytes.setText("以16进制字符显示包的详细信息");
         jScrollPane3.setViewportView(packetBytes);
 
@@ -258,7 +286,8 @@ public class MainUI extends JFrame {
         about.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, InputEvent.ALT_DOWN_MASK));
         about.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("/images/about.png"))));
         about.setText("关于...");
-        about.addActionListener(e -> JOptionPane.showMessageDialog(null, "仿Wireshark程序\n捕获包种类:TCP、UDP、DNS、ARP、ICMP\n界面参考:董相志，有部分修改\n", "关于仿Wireshark程序...", JOptionPane.INFORMATION_MESSAGE));
+        String aboutMessage = "仿Wireshark程序\n捕获包种类:IP、TCP、UDP、DNS、ARP、ICMP\n过滤器规则:\n1.支持模糊匹配 eg.172.19.176.1\n2.支持关键词(srcaddr,destaddr,type,length)匹配 eg.srcaddr=172.19.176.1\n3.支持多个规则(使用and,or连接) eg.srcaddr=172.19.176.1 and type=UDP\n";
+        about.addActionListener(e -> JOptionPane.showMessageDialog(null, aboutMessage, "关于仿Wireshark程序...", JOptionPane.INFORMATION_MESSAGE));
         mHelp.add(about);
 
         jMenuBar1.add(mHelp);
@@ -298,17 +327,15 @@ public class MainUI extends JFrame {
      * @param nif 网卡
      */
     public static void updateNif(PcapNetworkInterface nif) {
-        MainUI.nif = nif;
+        Main.nif = nif;
     }
 
     /**
-     * function:显示包的信息（内容和二进制信息）
-     *
+     * function:显示包的信息（内容和16进制信息）
      * @param packet 包
      */
     public void analyzingPacket(Packet packet) {
-        analysisTextArea.setText(packet.toString());
-        packetBytes.setText("16进制包数据:\n"+PacketInfo.byteArrayToHexString(packet.getRawData()));
+        packetTree = new PacketTree(this,packet);
     }
 
     /**
@@ -319,6 +346,7 @@ public class MainUI extends JFrame {
         if (captureThread != null) {
             captureThread.interrupt();
         }
+        System.exit(0);
     }
 
     /**
@@ -340,6 +368,7 @@ public class MainUI extends JFrame {
         btnStart.setEnabled(false);
         btnOpenFile.setEnabled(false);
         packetOrder = 0;
+        txtFilter.setText("");
         DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
         while (tableModel.getRowCount() > 0) {
             tableModel.removeRow(tableModel.getRowCount() - 1);
@@ -356,7 +385,7 @@ public class MainUI extends JFrame {
 
         if (packetCapture == null) {
             packetCapture = new PacketCapture(nif);
-            packetCapture.registerListener(packet -> allPackets.addPacket(packet));
+            packetCapture.registerListener(allPackets::addPacket);
             packetCapture.registerListener(packetTable::addTable);
         }
 
@@ -410,8 +439,7 @@ public class MainUI extends JFrame {
         int returnVal = fileChooser.showSaveDialog(this);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             String path = fileChooser.getSelectedFile().getAbsolutePath();
-            String filePath = path;
-            //String filePath = path.contains(".pcap")? path:(path+".pcap");
+            String filePath = path.contains(".pcap4j")? path:(path+".pcap4j");
             Utils.write(filePath,allPackets);
         }
         lblStatus.setText("文件保存完成！");
@@ -422,7 +450,6 @@ public class MainUI extends JFrame {
      * @param evt 事件
      */
     private void openFileActionPerformed(java.awt.event.ActionEvent evt) {
-        packetOrder = 0;
         int returnVal = fileChooser.showOpenDialog(this);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
@@ -436,7 +463,7 @@ public class MainUI extends JFrame {
      * function:打开文件按钮响应事件
      * @param evt 事件
      */
-    private void btnOpenFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOpenFileActionPerformed
+    private void btnOpenFileActionPerformed(java.awt.event.ActionEvent evt) {
         openFileActionPerformed(evt);
     }
 
@@ -444,7 +471,7 @@ public class MainUI extends JFrame {
      * function:保存文件按钮响应事件
      * @param evt 事件
      */
-    private void btnSaveFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveFileActionPerformed
+    private void btnSaveFileActionPerformed(java.awt.event.ActionEvent evt) {
         saveFileActionPerformed(evt);
     }
 
@@ -504,9 +531,9 @@ public class MainUI extends JFrame {
                 }
             }
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(MainUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        EventQueue.invokeLater(() -> new MainUI().setVisible(true));
+        EventQueue.invokeLater(() -> new Main().setVisible(true));
     }
 
 

@@ -1,60 +1,64 @@
+package packet;
+
+import main.Main;
 import org.pcap4j.packet.*;
-import java.time.LocalDateTime;
+import java.io.Serializable;
+import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 
 /**
  * @author R.Q.
- * description：包装类，用于提取Packet里面的部分信息
+ * description:对packet的封装，包含了packet和packet的一些简要内容
  */
-public class PacketInfo {
-    private String timestamp;
+public class MyPacket implements Serializable {
+    private final int order;
+    private final String timestamp;
     private String srcAddress;
     private String destAddress;
     private PacketType packetType;
     private int length;
+    Packet packet;
 
-    /**
-     * function:构造函数
-     */
-    public PacketInfo(){
+    public MyPacket(Packet packet,Timestamp timestamp){
+        this.packet = packet;
+        this.order = Main.packetOrder;
+        Main.packetOrder++;
+        parsePacket(packet);
+        DateTimeFormatter dateTimeFormatter =DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss");
+        this.timestamp = dateTimeFormatter.format(timestamp.toLocalDateTime());
     }
 
     /**
-     * function:包装packet,返回packetinfo对象
+     * function:加载packet信息
      * @param packet 包
-     * @return packetInfo包装类
      */
-    public static PacketInfo parsePacket(Packet packet){
-        PacketInfo packetInfo = new PacketInfo();
-        packetInfo.length = packet.length();
-        DateTimeFormatter dateTimeFormatter =DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss");
-        packetInfo.timestamp = dateTimeFormatter.format(LocalDateTime.now());
-
+    public void parsePacket(Packet packet){
+        this.length = packet.length();
         if (packet.contains(IpPacket.class)){
             //1.IP包
             IpPacket ipPacket = packet.get(IpPacket.class);
-            packetInfo.srcAddress = ipPacket.getHeader().getSrcAddr().toString();
-            packetInfo.destAddress = ipPacket.getHeader().getDstAddr().toString();
+            this.srcAddress = ipPacket.getHeader().getSrcAddr().toString();
+            this.destAddress = ipPacket.getHeader().getDstAddr().toString();
+            this.packetType = PacketType.IP;
             if(ipPacket.contains(TcpPacket.class)){
-                packetInfo.packetType = PacketType.TCP;
+                this.packetType = PacketType.TCP;
             }else if(ipPacket.contains(UdpPacket.class)){
-                packetInfo.packetType = PacketType.UDP;
+                this.packetType = PacketType.UDP;
             }
             if(ipPacket.contains(DnsPacket.class)){
-                packetInfo.packetType = PacketType.DNS;
+                this.packetType = PacketType.DNS;
             }
             if(ipPacket.contains(IcmpV4CommonPacket.class)||ipPacket.contains(IcmpV6CommonPacket.class)){
-                packetInfo.packetType = PacketType.ICMP;
+                this.packetType = PacketType.ICMP;
             }
         }
         else if(packet.contains(ArpPacket.class)){
             ArpPacket arpPacket = packet.get(ArpPacket.class);
-            packetInfo.srcAddress = arpPacket.getHeader().getSrcProtocolAddr().toString();
-            packetInfo.destAddress = arpPacket.getHeader().getDstProtocolAddr().toString();
-            packetInfo.packetType = PacketType.ARP;
+            this.srcAddress = arpPacket.getHeader().getSrcProtocolAddr().toString();
+            this.destAddress = arpPacket.getHeader().getDstProtocolAddr().toString();
+            this.packetType = PacketType.ARP;
         }
-        packetInfo.ipFormat();
-        return packetInfo;
+        this.ipFormat();
     }
 
     /**
@@ -83,9 +87,20 @@ public class PacketInfo {
         }
         return builder.toString();
     }
+
+    /**
+     * function:删除ip前的/
+     */
     private void ipFormat(){
         this.srcAddress =  this.srcAddress.substring(1);
         this.destAddress = this.destAddress.substring(1);
+    }
+
+    public int getOrder() {
+        return order;
+    }
+    public Packet getPacket() {
+        return packet;
     }
     public String getSrcAddress() {return srcAddress;}
     public String getDestAddress() {return destAddress;}
@@ -94,5 +109,5 @@ public class PacketInfo {
     public int getLength() {
         return this.length;
     }
-    public enum PacketType {UDP,TCP,ARP,ICMP,DNS}
+    public enum PacketType {IP,UDP,TCP,ARP,ICMP,DNS}
 }
