@@ -1,3 +1,5 @@
+package packet;
+
 import org.pcap4j.core.*;
 import org.pcap4j.packet.Packet;
 
@@ -11,13 +13,17 @@ import java.util.Set;
 public class PacketCapture {
     private final Set<PacketCapturedListener> listeners = new HashSet<>();
     private boolean capturing = false;
-    private PcapNetworkInterface nif;
+    private final PcapNetworkInterface nif;
     private PcapHandle handle;
 
     public PacketCapture(PcapNetworkInterface nif){
         this.nif = nif;
     }
 
+    /**
+     * function:注册监听器
+     * @param packetListener 抓包类监听器
+     */
     public void registerListener(PacketCapturedListener packetListener){
         listeners.add(packetListener);
     }
@@ -32,10 +38,15 @@ public class PacketCapture {
         }
     }
 
+    /**
+     * function:处理抓到的包
+     * @param packet 包
+     */
     private void handlePacketReceived(Packet packet) {
         if (capturing) {
+            MyPacket myPacket = new MyPacket(packet,handle.getTimestamp());
             for (PacketCapturedListener listener : listeners) {
-                listener.sendPacket(packet);
+                listener.sendMyPacket(myPacket);
             }
         }
     }
